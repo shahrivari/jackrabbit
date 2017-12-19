@@ -35,10 +35,7 @@ class LongGraph(edges: Iterator<Edge>) : Iterable<Edge> {
 
     constructor(path: String) : this(Files.lines(Paths.get(path))
                                          .filter { !it.startsWith("#") }
-                                         .map { it ->
-                                             Edge.parse(
-                                                     it)
-                                         }.iterator())
+                                         .map { it -> Edge.parse(it) }.iterator())
 
     fun edgeCount() = adjList.values.map { it.ins.size }.sum()
 

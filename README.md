@@ -1,2 +1,2 @@
-# jackrabbit
+# Jackrabbit
 Fast Motif Finder
