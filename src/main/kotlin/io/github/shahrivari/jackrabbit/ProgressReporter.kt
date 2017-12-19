@@ -1,3 +1,5 @@
+package io.github.shahrivari.jackrabbit
+
 import org.slf4j.Logger
 import java.util.concurrent.atomic.AtomicLong
 

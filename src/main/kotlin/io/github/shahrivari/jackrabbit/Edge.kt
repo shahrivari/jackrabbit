@@ -1,3 +1,5 @@
+package io.github.shahrivari.jackrabbit
+
 data class Edge(val src: Long, val dst: Long) {
     override fun toString() = "($src,$dst)"
     val nodes get() = listOf(src, dst)

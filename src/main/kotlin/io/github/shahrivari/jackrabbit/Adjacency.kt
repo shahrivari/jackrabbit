@@ -1,3 +1,5 @@
+package io.github.shahrivari.jackrabbit
+
 import it.unimi.dsi.fastutil.longs.LongArrayList
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import java.util.*
