@@ -1,6 +1,10 @@
-package io.github.shahrivari.jackrabbit
+package io.github.shahrivari.jackrabbit.undirected
 
+import io.github.shahrivari.jackrabbit.LongEdge
+import io.github.shahrivari.jackrabbit.ProgressReporter
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.longs.LongArrayList
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import mu.KotlinLogging
 import java.io.FileWriter
 import java.nio.file.Files
@@ -12,22 +16,22 @@ private val logger = KotlinLogging.logger {}
 
 class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
     val nodes: LongArray get
-    private val adjList = Long2ObjectOpenHashMap<LongAdjacency>()
+    private val neighbors = Long2ObjectOpenHashMap<LongArrayList>()
     private val reporter = ProgressReporter(
             logger, 1_000_000)
 
     init {
         logger.info { "Reading edges..." }
         for (e in edges) {
-            for (v in e.nodes)
-                adjList.getOrPut(v) { LongAdjacency(v) }.addEdge(e)
+            neighbors.getOrPut(e.src) { LongArrayList() }.add(e.dst)
+            neighbors.getOrPut(e.dst) { LongArrayList() }.add(e.src)
             reporter.progress()
         }
         logger.info { "Sorting nodes..." }
-        nodes = adjList.keys.toLongArray()
+        nodes = neighbors.keys.toLongArray()
         nodes.sort()
         logger.info { "Optimizing adjacencies..." }
-        adjList.values.forEach { it.sortAndTrim() }
+        neighbors.values.forEach { sortAndTrim(it) }
         logger.info { "Graph is built: #nodes:${nodes.size} , #edges:${edgeCount()}" }
     }
 
@@ -37,21 +41,15 @@ class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
                                          .filter { !it.startsWith("#") }
                                          .map { it -> LongEdge.parse(it) }.iterator())
 
-    fun edgeCount() = adjList.values.map { it.ins.size }.sum()
+    fun edgeCount() = neighbors.values.map { it.size }.sum() / 2
 
 
     fun hasEdge(src: Long, dest: Long): Boolean {
-        val adj = adjList[src] ?: return false
-        return Arrays.binarySearch(adj.outs.elements(), dest) >= 0
+        val neighs = neighbors[src] ?: return false
+        return Arrays.binarySearch(neighs.elements(), dest) >= 0
     }
 
-    fun adjacency(v: Long): LongAdjacency {
-        val adj = adjList[v]
-        require(adj != null) { "The node is not present: $v" }
-        return adj
-    }
-
-    fun neighbors(v: Long): LongArray = adjacency(v).neighs.elements()
+    fun neighbors(v: Long): LongArray = neighbors[v].elements()
 
     override fun iterator(): Iterator<LongEdge> = EdgeIterator()
 
@@ -59,18 +57,31 @@ class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
         this.forEach { writer.write("${it.src}\t${it.dst}\n") }
     }
 
+    private fun sortAndTrim(arr: LongArrayList) {
+        val set = LongOpenHashSet(arr)
+        require(set.size <= arr.size) { "The set size cannot be bigger than array!" }
+        arr.clear()
+        arr.addAll(set)
+        arr.trim()
+        Arrays.sort(arr.elements())
+    }
+
+
     inner class EdgeIterator : Iterator<LongEdge> {
         val vIter = nodes.iterator()
-        var adj = if (vIter.hasNext()) adjList[vIter.next()] else null
-        var wIter = if (adj != null) adj!!.outs.iterator() else null
+        var currentV = if (vIter.hasNext()) vIter.next() else null
+        var neighs = if (currentV != null) neighbors[currentV!!] else null
+        var wIter = if (neighs != null) neighs!!.iterator() else null
+
         override fun hasNext(): Boolean {
-            if (adj == null)
+            if (neighs == null)
                 return false
             while (!wIter!!.hasNext()) {
                 if (!vIter.hasNext())
                     return false
-                adj = adjList[vIter.next()]
-                wIter = adj!!.outs.iterator()
+                currentV = vIter.next()
+                neighs = neighbors[currentV!!]
+                wIter = neighs!!.iterator()
                 continue
             }
             return true
@@ -78,7 +89,7 @@ class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
 
         override fun next(): LongEdge {
             require(hasNext()) { "There is no element next!" }
-            return LongEdge(adj!!.node, wIter!!.nextLong())
+            return LongEdge(currentV!!, wIter!!.nextLong())
         }
 
     }

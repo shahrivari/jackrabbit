@@ -1,6 +1,6 @@
 package io.github.shahrivari.jackrabbit
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import mu.KotlinLogging
 import java.io.FileWriter
 import java.nio.file.Files
@@ -9,10 +9,9 @@ import java.util.*
 
 private val logger = KotlinLogging.logger {}
 
-
-class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
-    val nodes: LongArray get
-    private val adjList = Long2ObjectOpenHashMap<LongAdjacency>()
+class IntGraph(edges: Iterator<IntEdge>) : Iterable<IntEdge> {
+    val nodes: IntArray get
+    private val adjList = Int2ObjectOpenHashMap<IntAdjacency>()
     private val reporter = ProgressReporter(
             logger, 1_000_000)
 
@@ -20,46 +19,47 @@ class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
         logger.info { "Reading edges..." }
         for (e in edges) {
             for (v in e.nodes)
-                adjList.getOrPut(v) { LongAdjacency(v) }.addEdge(e)
+                adjList.getOrPut(v) { IntAdjacency(v) }.addEdge(e)
             reporter.progress()
         }
         logger.info { "Sorting nodes..." }
-        nodes = adjList.keys.toLongArray()
+        nodes = adjList.keys.toIntArray()
         nodes.sort()
         logger.info { "Optimizing adjacencies..." }
         adjList.values.forEach { it.sortAndTrim() }
         logger.info { "Graph is built: #nodes:${nodes.size} , #edges:${edgeCount()}" }
     }
 
-    constructor(edges: Iterable<LongEdge>) : this(edges.iterator())
+    constructor(edges: Iterable<IntEdge>) : this(edges.iterator())
 
     constructor(path: String) : this(Files.lines(Paths.get(path))
                                          .filter { !it.startsWith("#") }
-                                         .map { it -> LongEdge.parse(it) }.iterator())
+                                         .map { it -> IntEdge.parse(it) }.iterator())
 
     fun edgeCount() = adjList.values.map { it.ins.size }.sum()
 
 
-    fun hasEdge(src: Long, dest: Long): Boolean {
+
+    fun hasEdge(src: Int, dest: Int): Boolean {
         val adj = adjList[src] ?: return false
         return Arrays.binarySearch(adj.outs.elements(), dest) >= 0
     }
 
-    fun adjacency(v: Long): LongAdjacency {
+    fun adjacency(v: Int): IntAdjacency {
         val adj = adjList[v]
         require(adj != null) { "The node is not present: $v" }
         return adj
     }
 
-    fun neighbors(v: Long): LongArray = adjacency(v).neighs.elements()
+    fun neighbors(v: Int): IntArray = adjacency(v).neighs.elements()
 
-    override fun iterator(): Iterator<LongEdge> = EdgeIterator()
+    override fun iterator(): Iterator<IntEdge> = EdgeIterator()
 
     fun saveAsText(path: String) = FileWriter("/tmp/a.txt").use { writer ->
         this.forEach { writer.write("${it.src}\t${it.dst}\n") }
     }
 
-    inner class EdgeIterator : Iterator<LongEdge> {
+    inner class EdgeIterator : Iterator<IntEdge> {
         val vIter = nodes.iterator()
         var adj = if (vIter.hasNext()) adjList[vIter.next()] else null
         var wIter = if (adj != null) adj!!.outs.iterator() else null
@@ -76,11 +76,17 @@ class LongGraph(edges: Iterator<LongEdge>) : Iterable<LongEdge> {
             return true
         }
 
-        override fun next(): LongEdge {
+        override fun next(): IntEdge {
             require(hasNext()) { "There is no element next!" }
-            return LongEdge(adj!!.node, wIter!!.nextLong())
+            return IntEdge(adj!!.node, wIter!!.nextInt())
         }
 
     }
 
+}
+
+
+fun main(args: Array<String>) {
+    var graph = LongGraph("/home/saeed/nets/google.txt")
+    println("DONE!")
 }
